@@ -5,7 +5,7 @@ const app = express();
 app.use(express.urlencoded({ extended: true })); // 
 app.use(express.json());
 
-const CHUNK_SIZE = 5 * 1024 * 1024; // กำหนดการหั่นเพื่อส่ง stream ไปทุก ๆ 5 mb
+const CHUNK_SIZE = (5 * 1024) * 1024; // กำหนดการหั่นเพื่อส่ง stream ไปทุก ๆ 5 mb
 
 app.get("/video", (req, res) => {
     const videoPath = "./files/video1.mov"
