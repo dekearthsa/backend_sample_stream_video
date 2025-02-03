@@ -5,33 +5,38 @@ const app = express();
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
+const CHUNK_SIZE = 5 * 1024 * 1024; // กำหนดการหั่นเพื่อส่ง stream ไปทุก ๆ 5 mb
+
 app.get("/video", (req, res) => {
     const videoPath = "./files/video1.mov"
-    const stat = fs.statSync(videoPath); // fs.statSync ดึงข้อมูลรายละเอียดไฟล์
+    const stat = fs.statSync(videoPath); // ใช้ fs.statSync เพื่อดูรายละเอียดของไฟล์ ในที่นี้เราจะใช้ size ขนาดของข้อมูล
     const fileSize = stat.size; 
-    const range = req.headers.range; // ข้อมูล header ของ video ที่ร้องขอ
+    const range = req.headers.range; // เก็บตำแหน่งของ bytes ณ​ ปัจจุบันของทาง frontend 
     console.log("range => ",range);
-    const parts = range.replace(/bytes=/, "").split("-"); 
+    const parts = range.replace(/bytes=/, "").split("-");  // ช่วงข้อมูลของที่ video เล่นไปถึง ข้อมูลจะออกมาเป็น string แบบนี้ bytes=65536- ต้องทำการ clean 
     console.log("parts => ",parts);
-    const start = parseInt(parts[0]); 
+    const start = parseInt(parts[0]); // ช่วงของ bytes ที่เรากด ข้อมูลจะมีรูปแบบ ['45435','']
     console.log("start => ", start);
-    const end =  fileSize - 1;
+    const end = Math.min(start + CHUNK_SIZE - 1, fileSize - 1); // บอกว่าตอนนี้กำลังขอข้อมูลในช่วงที่อยู่ภายใน 5MB ใช้ Math.min เพื่อให้มันใจว่าจะไม่เกินขนาดของไฟล์
     console.log("end => ", end);
-    const chunkSize = end - start + 1; // start + 1 เพื่อให้จำนวนครบ
+    const chunkSize = end - start + 1; // start + 1 เพื่อให้จำนวน file video byte ครบทั้งหมด
     console.log("chunkSize => ", chunkSize)
-    const fileStream = fs.createReadStream(videoPath, { start, end }); // { start, end } ที่ต้องใส่ start, end เพื่อให้เราสามารถเลื่อน video ได้ 
+
+    const readST = fs.createReadStream(videoPath, { start, end }); // กำหนดช่วงของข้อมูล {ช่อง bytes ที่เริ่มต้น, ช่วง bytes ที่สิ้นสุด} ถ้าไม่ใส่เราจะกดเลื่อน video ไม่ได้ 
     res.writeHead(206, {
-        "Content-Range": `bytes ${start}-${end}/${fileSize}`, // กำหนดขนาดของข้อมูล โดย ด้านหน้าเป็นช่วงของ byte ณ เวลานึงถึง byte ช่วงจบ / byte ทั้งหมด
-        "Accept-Ranges": "bytes", // ข้อมูลเป็น bytes
-        "Content-Length": chunkSize, // ข้อมูล bytes ที่ server ที่ทางหน้าบ้านร้องขอมา
-        "Content-Type": "video/mp4", // ข้อมูลที่ส่งไปเป็น video 
+        "Content-Range": `bytes ${start}-${end}/${fileSize}`,  // กำหนดขนาดของข้อมูล โดย ด้านหน้าเป็นช่วงของ byte ณ เวลานึงถึง byte ช่วงจบ / byte ทั้งหมด
+        "Accept-Ranges": "bytes",  // บอก frontend ให้รู้ว่า Server รองรับข้อมูลแบบ Byte Ranges
+        "Content-Length": chunkSize, // ตรงนี้กำลังบอกถึงจำนวน bytes ที่เราจะ Stream ไปให้
+        "Content-Type": "video/mp4", // บอกว่าประเภทข้อมูลคือไฟล์ video 
     });
-    fileStream.on('data', (chunk) => {
-        res.write(chunk); // ส่ง chunk ไปยัง client
+
+    readST.on('data', (chunk) => {
+        res.write(chunk); // ส่งไปเป็นทีล่ะส่วนตามที่กำหนดไว้
     });
-    fileStream.on('end', () => {
+
+    readST.on('end', () => {
         console.log("Streaming finished");
-        res.end(); // ปิดการเชื่อมต่อ
+        res.end();  // อย่าลืมปิดเดะ API จะทำงานตลอดกาล
     });
 });
 
