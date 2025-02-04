@@ -18,8 +18,9 @@ app.get("/video", (req, res) => {
     const start = parseInt(parts[0]); // ช่วงของ bytes ที่เรากด ข้อมูลจะมีรูปแบบ ['45435','']
     console.log("start => ", start);
     const end = Math.min(start + CHUNK_SIZE - 1, fileSize - 1); // บอกว่าตอนนี้กำลังขอข้อมูลในช่วงที่อยู่ภายใน 5MB ใช้ Math.min เพื่อให้มันใจว่าจะไม่เกินขนาดของไฟล์
+    // ข้อมูลต้องลบออกไป -1 bytes เนื่องจาก ตำแหน่งการวาง bytes นั้นเป็น index
     console.log("end => ", end);
-    const chunkSize = end - start + 1; // start + 1 เพื่อให้จำนวน file video byte ครบทั้งหมด
+    const chunkSize = end - start + 1; // chunkSize + กลับไป 1 ส่วนนี้เรากำลังจะบอกหน้าบ้านว่า bytes ที่จะส่งไปมีจำนวนเท่าไหร่
     console.log("chunkSize => ", chunkSize)
 
     const readST = fs.createReadStream(videoPath, { start, end }); // กำหนดช่วงของข้อมูล {ช่อง bytes ที่เริ่มต้น, ช่วง bytes ที่สิ้นสุด} ถ้าไม่ใส่เราจะกดเลื่อน video ไม่ได้ 
